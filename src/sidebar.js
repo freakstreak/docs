@@ -303,7 +303,7 @@ module.exports = {
           ],
         },
         {
-          Examples: ["keto/examples/olymp-file-sharing"],
+          Examples: ["keto/quickstart", "keto/examples/olymp-file-sharing"],
         },
       ],
     },
