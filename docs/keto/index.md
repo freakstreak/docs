@@ -3,93 +3,105 @@ id: index
 title: Introduction
 ---
 
-Ory Permissions (based on the open-source Ory Keto Permission Server) is the first and only open source implementation of
+Ory Permissions (based on the open-source Ory Keto Permission Server) is the first open source implementation of
 [Zanzibar: Google's Consistent, Global Authorization System"](https://research.google/pubs/pub48190/).
 
 With Ory Permissions, you can
 
-- centralize your authorization logic in one service that is the authorative source across all your apps and services,
-- define your permission model (RBAC, ABAC, anything in between) in a language-agnostic way, with [SDKs](./sdk/01_index.md)
-  available for all major programming languages.
-- issue fine-grained permissions based on relationships (e.g., `user x is owner of project y`), or manage all permissions through
-  groups, roles, etc.
-- query your permissons across the world against the globally-distributed Ory Network.
+- unify authorization logic in one service that is the authoritative source across all your applications,
+- define a permission model (RBAC, ABAC, anything in between) independent of any tech-stack,
+  with [SDKs](./sdk/01_index.md)
+  available for all major programming languages,
+- query permissions across the world against the globally-distributed Ory Network,
+- issue fine-grained permissions (e.g., `user x can read document y`),
+- inherit permissions through groups, roles, hierarchies, etc.
 
-And point to the high-level concepts:
-
-## Concepts or Ory Permissions
+## How does Ory Permissions work?
 
 ### Relationships
 
-At its core, Ory Permissions is a graph database where the nodes are subjects (things that we want to give permissions to) and
-objects (things that we want to check permissions for). The edges in this graph are `relationships`. Therefore, a relationship
-always comes as a tuple:
+Ory Permissions operates on and manages relationships. These relationships represent the ground-truth
+from which all permissions are derived. Common examples include:
 
-| User:Bob | is  | editor   | of  | Document:Readme |
-| -------- | --- | -------- | --- | --------------- |
-| Subject  |     | Relation |     | Object          |
+- `User c is the owner of Document d`
+- `User a is a member of Group b`
 
-The part before the colon (`User` and `Document`) are the namespaces of the subject and object.
+Typically, relationships represent just some fact that is part of your application already.
+To ensure the Ory Permission Server always has the most up-to-date information, you should
+use it as the ground-truth for your application as well. There are multiple APIs to query and
+manage relationships, but more on those later.
 
-The concrete permissions often depend not only on the relationships stored in Ory Permission, but on the rules that define what
-these relationships imply. In the example above, being an `editor` might imply permissions to `read` and `write` the document, but
-not to `approve` or `delete` it. These rules are defined in the Ory Permission Language.
+### Ory Permission Language (OPL)
 
-### Permission language
+The Ory Permission Language defines the rules by which permissions are derived from relationships.
+Every application has different rules, so this allows you to customize the behavior to your permission model.
+Examples of rules are:
 
-The Ory Permission Language defines the rules and implications of relationships. The rules are defined in a subset of TypeScript.
-A rule that gives editors of a document the `read` and `write` permisson looks like this:
+- every `owner` of a document can also edit and view that document
+- everyone who can view a parent directory, can also view all children
+- to view a document, the user must not be in the deny-list for that document
+
+The Ory Permission Language is a subset of TypeScript, so you do not need to learn a new language.
+Have a look at this basic example, or the quickstart guide to get started.
 
 ```ts
-class User implements Namespace {}
+import {Namespace, Context} from "@ory/keto-namespace-types"
+
+class User implements Namespace {
+}
 
 class Document implements Namespace {
+  // All relationships for a single document.
   related: {
     editors: User[]
+    viewers: User[]
   }
 
+  // The permissions derived from the relationships and context.
   permits = {
-    read: (ctx: Context): boolean => this.related.editors.includes(ctx.subject),
+    // A permission is a function that takes the context and returns a boolean. It can reference `this.related` and `this.permits`.
     write: (ctx: Context): boolean => this.related.editors.includes(ctx.subject),
+    read: (ctx: Context): boolean => this.permits.write(ctx) || this.related.viewers.includes(ctx.subject),
   }
 }
 ```
 
-You can learn more in the [guide on using the Ory Permission Language](./guides/userset-rewrites.mdx).
+### Checking Permissions
 
-### Check API
-
-Use the `check` API to check whether a subject has a permission on an object. This API is primarily used to
-[check permissions to restrict actions](./guides/simple-access-check-guide.mdx).
-
-A check-request can include the maximum depth of the search tree. If the value is less than 1 or greater than the global max-depth
-then the global max-depth will be used instead. This is to ensure low latency and limit the resource usage per request. To find
-out more about Ory Keto's performance, head over to the [performance considerations](./performance.mdx).
+The Check API is the main API. It gives a simple true or false answer to a permission request, e.g.
+`Is user x allowed to read document y?`. The answer is calculated from all relationships and rules defined in the Ory
+Permission Language. This API should be used by your application to check if a user is allowed to perform any action,
+so it should be in the critical path of every request.
 
 For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#checkservice) or
 [REST API reference](./reference/rest-api.mdx#check-a-relation-tuple).
 
-### List API
+### Listing Relationships
 
-Use the `list` API to query [relationships](./concepts/relation-tuples.mdx) by providing a partial relation tuple. It is used to:
+Using the List Relationship API, you can query relationships. This can be used to e.g.
 
-- [list objects a user has access to](./guides/list-api-display-objects.mdx#listing-objects)
-- [list users who have a specific role](./guides/list-api-display-objects.mdx#listing-subjects)
-- list users who are members of a specific group
-- audit permissions in the system
+- implement views for reviewing and managing access,
+- list all users and groups that have access to a document or directory,
+- list all service accounts that have any relationship to a resource,
+- list all documents that are shared with a user,
+- list all documents that are owned by a group.
 
 For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#readservice) or
 [REST API reference](./reference/rest-api.mdx#query-relation-tuples).
 
-### Expand API
+### Expanding Permissions
 
-At times, it is important to know which subjects have access to a given object. Use the `expand` API to recursively expand a
-[subject set](./concepts/subjects.mdx#subject-sets) into a tree of subjects. For each subject, the tree assembles the relation
-tuples including the operands as defined in the [namespace configuration](./concepts/namespaces.mdx).
+Often you want to know what a user can do, not just whether they have a certain permission. For example,
+you might want to get a list of all documents that a user can read to display it in the user-interface. The expand API
+is able to calculate that list
+of objects. This differs from the List API, which does not take into account the Ory Permission Language.
 
-An expand request can include the maximum depth of the tree to be returned. If the value is less than 1 or greater than the global
-max-depth then the global max-depth will be used instead. This is required to ensure low latency and limit the resource usage per
-request. To find out more about Ory Keto's performance, head over to the [performance considerations](./performance.mdx).
+Similarly, the Expand API also allows to get a list of all subjects that have access to an object. This can for example
+be used to audit permissions, or to get all direct and indirect members of a group.
 
-For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#expandservice) or
-[REST API reference](./reference/rest-api.mdx#getexpand).
+For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#readservice) or
+[REST API reference](./reference/rest-api.mdx#query-relation-tuples).
+
+## Get Started with Ory Permissions
+
+To get started with Ory Permissions, head over to the [quickstart guide](../guides/permissions/overview.mdx).
