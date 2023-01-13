@@ -9,8 +9,7 @@ Ory Permissions (based on the open-source Ory Keto Permission Server) is the fir
 With Ory Permissions, you can
 
 - unify authorization logic in one service that is the authoritative source across all your applications,
-- define a permission model (RBAC, ABAC, anything in between) independent of any tech-stack,
-  with [SDKs](./sdk/01_index.md)
+- define a permission model (RBAC, ABAC, anything in between) independent of any tech-stack, with [SDKs](./sdk/01_index.md)
   available for all major programming languages,
 - query permissions across the world against the globally-distributed Ory Network,
 - issue fine-grained permissions (e.g., `user x can read document y`),
@@ -20,35 +19,32 @@ With Ory Permissions, you can
 
 ### Relationships
 
-Ory Permissions operates on and manages relationships. These relationships represent the ground-truth
-from which all permissions are derived. Common examples include:
+Ory Permissions operates on and manages relationships. These relationships represent the ground-truth from which all permissions
+are derived. Common examples include:
 
 - `User c is the owner of Document d`
 - `User a is a member of Group b`
 
-Typically, relationships represent just some fact that is part of your application already.
-To ensure the Ory Permission Server always has the most up-to-date information, you should
-use it as the ground-truth for your application as well. There are multiple APIs to query and
-manage relationships, but more on those later.
+Typically, relationships represent just some fact that is part of your application already. To ensure the Ory Permission Server
+always has the most up-to-date information, you should use it as the ground-truth for your application as well. There are multiple
+APIs to query and manage relationships, but more on those later.
 
 ### Ory Permission Language (OPL)
 
-The Ory Permission Language defines the rules by which permissions are derived from relationships.
-Every application has different rules, so this allows you to customize the behavior to your permission model.
-Examples of rules are:
+The Ory Permission Language defines the rules by which permissions are derived from relationships. Every application has different
+rules, so this allows you to customize the behavior to your permission model. Examples of rules are:
 
 - every `owner` of a document can also edit and view that document
 - everyone who can view a parent directory, can also view all children
 - to view a document, the user must not be in the deny-list for that document
 
-The Ory Permission Language is a subset of TypeScript, so you do not need to learn a new language.
-Have a look at this basic example, or the quickstart guide to get started.
+The Ory Permission Language is a subset of TypeScript, so you do not need to learn a new language. Have a look at this basic
+example, or the quickstart guide to get started.
 
 ```ts
-import {Namespace, Context} from "@ory/keto-namespace-types"
+import { Namespace, Context } from "@ory/keto-namespace-types"
 
-class User implements Namespace {
-}
+class User implements Namespace {}
 
 class Document implements Namespace {
   // All relationships for a single document.
@@ -69,9 +65,9 @@ class Document implements Namespace {
 ### Checking Permissions
 
 The Check API is the main API. It gives a simple true or false answer to a permission request, e.g.
-`Is user x allowed to read document y?`. The answer is calculated from all relationships and rules defined in the Ory
-Permission Language. This API should be used by your application to check if a user is allowed to perform any action,
-so it should be in the critical path of every request.
+`Is user x allowed to read document y?`. The answer is calculated from all relationships and rules defined in the Ory Permission
+Language. This API should be used by your application to check if a user is allowed to perform any action, so it should be in the
+critical path of every request.
 
 For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#checkservice) or
 [REST API reference](./reference/rest-api.mdx#check-a-relation-tuple).
@@ -91,13 +87,12 @@ For more details, head over to the [gRPC API reference](./reference/proto-api.md
 
 ### Expanding Permissions
 
-Often you want to know what a user can do, not just whether they have a certain permission. For example,
-you might want to get a list of all documents that a user can read to display it in the user-interface. The expand API
-is able to calculate that list
-of objects. This differs from the List API, which does not take into account the Ory Permission Language.
+Often you want to know what a user can do, not just whether they have a certain permission. For example, you might want to get a
+list of all documents that a user can read to display it in the user-interface. The expand API is able to calculate that list of
+objects. This differs from the List API, which does not take into account the Ory Permission Language.
 
-Similarly, the Expand API also allows to get a list of all subjects that have access to an object. This can for example
-be used to audit permissions, or to get all direct and indirect members of a group.
+Similarly, the Expand API also allows to get a list of all subjects that have access to an object. This can for example be used to
+audit permissions, or to get all direct and indirect members of a group.
 
 For more details, head over to the [gRPC API reference](./reference/proto-api.mdx#readservice) or
 [REST API reference](./reference/rest-api.mdx#query-relation-tuples).
